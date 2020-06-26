@@ -1,0 +1,369 @@
+---
+title: "riskCommunicator package extended vignette"
+author: "Jessica Grembi, Elizabeth Rogawski McQuade"
+date: "`r Sys.Date()`"
+output: 
+  rmarkdown::html_vignette:
+      number_sections: no
+      toc: yes
+vignette: >
+  %\VignetteIndexEntry{riskCommunicator package extended vignette for newbie R users}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteDepends{tidyverse}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Introduction to `riskCommunicator`
+
+The `riskCommunicator` package facilitates the estimation of common epidemiological effect measures that are relevant to public health, but that are often not trivial to obtain from common regression models, like logistic regression. In particular, `riskCommunicator` estimates risk and rate differences, in addition to risk and rate ratios. The package estimates these effects using g-computation with the appropriate parametric model depending on the outcome (logistic regression for binary outcomes, Poisson regression for rate or count outcomes, and linear regression for continuous outcomes). Therefore, the package can handle binary, rate, count, and continuous outcomes and allows for dichotomous, categorical (>2 categories), or continuous exposure variables. Additional features include estimation of effects stratified by subgroup and adjustment of standard errors for clustering. Confidence intervals are constructed by bootstrap at the individual or cluster level, as appropriate. 
+
+This package operationalizes g-computation, which has not been widely adopted due to computational complexity, in an easy-to-use implementation tool to increase the reporting of more interpretable epidemiological results. To make the package accessible to a broad range of health researchers, our goal was to design a function that was as straightforward as the standard logistic regression functions in R (e.g. glm) and that would require little to no expertise in causal inference methods or advanced coding.
+
+
+# Getting started
+
+## Installation 
+The `riskCommunicator` R package is available as a source package through GitHub. Installation requires the ability to compile R packages. This means that R and the R tool-chain must be installed, which requires the Xcode command-line tools on Mac and Rtools on Windows.
+
+The easiest source installation method uses the devtools package:
+```{r installation, eval = F}
+library(devtools)
+devtools::install_github("jgrembi/riskCommunicator")
+```
+
+You will likely get asked if you want to update several packages, it might take a few minutes if you choose to update all. When loading the `riskCommunicator` package in the next step, if you get an error related to an older version of a package in namespace (e.g. `namespace 'rlang' 0.4.2 is already loaded but 0.4.3 is required`), we suggest trying `install.packages("<name of package causing error>")` and restarting your R session.
+
+
+Load packages:
+```{r setup}
+library(riskCommunicator)
+library(tidyverse)
+library(printr)
+```
+## Description of main package function and accessing package documentation
+
+The `gComp` function is the main function in the `riskCommunicator` package and allows you to estimate a variety of effects depending on your outcome and exposure of interest. The function is coded as follows:
+
+```{r, printr.help.sections = c('usage','arguments')}
+?gComp
+```
+
+All package documentation can be found by typing `?riskCommunicator` into the console. Documentation for individual functions can be found by typing `?` followed by the function name (e.g. `?gComp` as shown above).  Note, in the example above, we have not printed all of the information contained in the documentation, additional info can be found on the output values and formatting as well as details on what the function is doing under the hood.
+
+
+## Preparing your data
+
+First, load your data into a data frame in R. If your data is a .csv file, use the following code:
+
+```{r load_other_data, eval = FALSE}
+mydata <- read.csv("C:/your/file/path/yourdata.csv")
+```
+
+
+The examples provided in this vignette will use the dataset **cvdd** and that data can be accessed with:
+```{r dataset}
+data(cvdd)
+```
+
+Next, ensure your variables are specified appropriately. For example, the exposure variable (x) must be coded as a factor (if your exposure is binary or categorical) or as a continuous variable. Similarly, covariates Z cannot be coded as a character variable, otherwise you will get an error message. Variable type can be changed to a factor variable using the following code:
+
+```{r variable_check}
+cvdd$educ <- as.factor(cvdd$educ)
+#educ is now a factor with 4 levels
+
+str(cvdd$educ)
+```
+
+An example of the error message you will receive if one of your covariates is a character variable:
+
+```{r error = TRUE}
+cvdd.break <- cvdd %>% 
+  mutate(PREVHYP = as.character(PREVHYP))
+  
+binary.res.break <- gComp(data = cvdd.break, Y = "cvd_dth", X = "DIABETES", Z = c("AGE", "SEX", "BMI", "CURSMOKE", "PREVHYP"), outcome.type = "binary", R = 200)
+```
+
+You also want to make sure that the referent category for factor variables is the category of your choice. To change the referent category for a factor variable, you can use the following code. The referent category should be listed first.
+
+```{r factor_check}
+str(cvdd$educ)
+
+cvdd$educ <- factor(cvdd$educ,levels = c("4","1","2","3"))
+#Category 4 is now the referent
+
+str(cvdd$educ)
+```
+
+It's always a good idea to check for missing data. The package will estimate effects only for observations with complete data for the variables included in the model. The following code will return the number of missing values for all variables in your dataset:
+
+```{r}
+cvdd %>%
+ select(everything()) %>%
+ summarise_all(list(~sum(is.na(.))))
+```
+
+
+# Vignette with the Framingham Heart Study
+
+We'll demonstrate how to use the package with data from the Framingham Heart Study. The following information is from the official Framingham study documentation (https://biolincc.nhlbi.nih.gov/teaching/):
+
+"The Framingham Heart Study is a long term prospective study of the etiology of cardiovascular disease among a population of free living subjects in the community of Framingham, Massachusetts. The Framingham Heart Study was a landmark study in epidemiology in that it was the first prospective study of cardiovascular disease and identified the concept of risk factors and their joint effects. The study began in 1948 and 5,209 subjects were initially enrolled in the study. Participants have been examined biennially since the inception of the study and all subjects are continuously followed through regular surveillance for cardiovascular outcomes. Clinic examination data has included cardiovascular disease risk factors and markers of disease such as blood pressure, blood chemistry, lung function, smoking history, health behaviors, ECG tracings, Echocardiography, and medication use. Through regular surveillance of area hospitals, participant contact, and death certificates, the Framingham Heart Study reviews and adjudicates events for the occurrence of Angina Pectoris, Myocardial Infarction, Heart Failure, and Cerebrovascular disease.
+
+**cvdd** is a subset of the data collected as part of the Framingham study from 4,240 participants who conducted a baseline exam and were free of prevalent coronary heart disease when they entered the study.
+Participant clinic data was collected during three examination periods, approximately 6 years apart, from roughly 1956 to 1968. Each participant was followed for a total of 24 years for the outcome of the following events: Angina Pectoris, Myocardial Infarction, Atherothrombotic Infarction or Cerebral Hemorrhage (Stroke) or death. 
+
+NOTE: This is a "teaching" dataset. Specific methods were employed to ensure an anonymous dataset that protects patient confidentiality; therefore, this dataset is inappropriate for publication purposes." The use of these data for the purposes of this package were approved on 11Mar2019 (request #7161) by NIH/NHLBI.
+
+In this vignette, we present several examples to estimate effect measures of interest from these data. The **cvdd** dataset has already been cleaned and formatted for these examples. 
+
+
+## Binary (dichotomous) outcome example
+
+Research question: what is the effect of having diabetes at the beginning of the study on the 24-year risk of cardiovascular disease or death due to any cause (a combined outcome)? 
+
+Here, we will estimate the risk difference, risk ratio, odds ratio, and number needed to treat. We will adjust for confounders: patient's age, sex, body mass index (BMI), smoking status (current smoker or not), and prevalence of hypertension (if they are hypertensive or not at baseline), by including them as covariates in the model.  
+
+Note that for a protective exposure (risk difference less than 0), the **Number needed to treat/harm** is interpreted as the number needed to treat, and for a harmful exposure (risk difference greater than 0), it is interpreted as the number needed to harm. Note also that confidence intervals are not reported for the **Number needed to treat/harm**. If the confidence interval (CI) for the risk difference crosses the null, the construction of the CI for the **Number needed to treat/harm** is not well defined. Challenges and options for reporting the **Number needed to treat/harm** CI are reviewed extensively in Altman 1998, Hutton 2000, and Stang 2010, with a consensus that an appropriate interval would have two segments, one bounded at negative infinity and the other at positive infinity. Because the **Number needed to treat/harm** is most useful as a communication tool and is directly derived from the risk difference, which has a CI that provides a more interpretable measure of precision, we do not report the CI for the **Number needed to treat/harm**. If the CI of the risk difference does not cross the null, the **Number needed to treat/harm** CI can be calculated straightforwardly by taking the inverse of each confidence bound of the risk difference. 
+
+The gComp function is designed similarly to a normal regression model in R and takes as input either a formula or a specification of Y (outcome), X (exposure) and Z (covariates) (type `help(gComp)` for additional details). If you specify X, Y, and Z separately, each variable name needs to be entered in quotes. In this example, logistic regression is used as the underlying parametric model for g-computation.
+
+```{r binary_outcome, paged.print = FALSE}
+
+## Specify the regression formula
+cvdd.formula <- cvd_dth ~ DIABETES + AGE + SEX + BMI + CURSMOKE + PREVHYP
+
+## For reproducibility, we should always set the seed since the g-computation uses random resampling of the data to calculate confidence intervals and random sampling of the distribution when predicting outcomes
+set.seed(1298)
+
+## Call the gComp function
+binary.res <- gComp(data = cvdd, formula = cvdd.formula, outcome.type = "binary", R = 200)
+```
+
+
+Alternatively, we could run the same analysis by specifying the outcome, exposure, and covariates separately
+```{r binary_outcome_noFormula}
+set.seed(1298)
+
+binary.res.alt <- gComp(data = cvdd, Y = "cvd_dth", X = "DIABETES", Z = c("AGE", "SEX", "BMI", "CURSMOKE", "PREVHYP"), outcome.type = "binary", R = 200)
+```
+
+Note that we did not need to specify function arguments that did not apply for our analysis. For example, if we wanted to estimate unadjusted effects, with no Z covariates, we could simply leave out the Z argument in the function above. Arguments that are not included in the function statement are automatically populated with the default values. See below another example of the same analysis, which includes all arguments at their default values. This example is syntactically equivalent to the first example for **binary.res** (i.e. the code being evaluated is exactly the same), but is functionally equivalent to both of the examples above (i.e. will produce the same results).
+
+```{r binary_outcome_defaults}
+set.seed(1298)
+
+binary.res.alt2 <- gComp(data = cvdd, formula = cvdd.formula, outcome.type = "binary", R = 200, Y = NULL, X = NULL, Z = NULL, subgroup = NULL, offset = NULL, rate.multiplier = 1, clusterID = NULL, parallel = "no", ncpus = 1)
+```
+
+
+Let's look at the results. Typing either of the below will provide the point estimate and the 95% confidence limits
+```{r binary_results_check, paged.print = FALSE}
+binary.res
+print(binary.res)
+```
+Not surprisingly, there is a large effect of diabetes on cardiovascular disease. Specifically, the absolute 24-year risk of cardiovascular disease or death due to any cause is 30.0% (95% CI: 21.5, 37.5) higher among subjects with diabetes at baseline compared to subjects without diabetes at baseline. In relative terms, the 24-year risk is 55.2% (95% CI: 38.6, 69.6) higher. Because the outcome is common (41.8%), the odds ratio (4.55) is highly inflated compared to the risk ratio (1.55). This is a clear example where the odds ratio may be misleading since the odds ratio is commonly misinterpreted as a risk ratio. 
+
+We also estimated the number needed to treat as 1/Risk difference. In this example, with a harmful exposure, we can interpret the number needed to treat as the number needed to harm: we would expect 3 (95% CI: 3, 5) persons would need to have diabetes at baseline to observe an increase in the number of cases of cardiovascular disease or death by 1 over 24 years of follow-up.
+
+The result obtained from the `gComp` function is an object of class **gComp** which is a list containing the summary results (what is seen when you print), plus 8 additional items: `results.df`, `n`, `R`, `boot.result`, `contrast`, `family`, `formula`, `predicted.outcome`, and `glm.result` (see `?gComp` or `help(gComp)` for a more detailed explanation of each item in the list).  You can access the different items using the `$` operator as shown below.  
+```{r gComp_class_explaination}
+class(binary.res)
+# The names of the different items in the list 
+names(binary.res)
+
+# To see the sample size of the original data:
+binary.res$n 
+
+# To see the contrast being compared in the analysis:
+binary.res$contrast
+```
+
+To check to make sure the package is estimating effects as expected, we suggest comparing the riskCommunicator results to a normal logistic regression model (for example, with the glm function in R) using the same model structure. The odds ratio from riskCommunicator should be very similar to the odds ratio obtained from glm (note: minor differences may occur due to estimating marginal vs. covariate conditional effects). Because any errors that you receive while running a normal logistic regression model will also be an issue when using the riskCommunicator package, it may be helpful to optimize the logistic regression first.
+
+We can also do the same analysis within subgroups. Here we'll estimate effects stratified by sex, or within subgroups of men and women.
+
+```{r binary_outcome_subgroup, paged.print = FALSE}
+set.seed(1298)
+
+binary.res.subgroup <- gComp(data = cvdd, Y = "cvd_dth", X = "DIABETES", Z = c("AGE", "SEX", "BMI", "CURSMOKE", "PREVHYP"), subgroup = "SEX", outcome.type = "binary", R = 200)
+
+binary.res.subgroup
+```
+
+From these results, we see that females (sex = 1) have a larger increase in the absolute 24-year risk of cardiovascular disease or death associated with diabetes than males (sex = 0). They also have a larger relative increase in risk than males.
+
+## Categorical exposure example
+Question: what is the effect of obesity on the 24-year risk of cardiovascular disease or death due to any cause?
+
+You can do a similar analysis when your exposure variable is not binary (has more than 2 categories). In this example, we specify obesity as a categorical variable (`bmicat` coding: 0 = normal weight; 1=underweight; 2=overweight; 3=obese) and therefore have an exposure with more than 2 categories. To ensure that the effects are estimated with the referent of your choice, you can change the referent category using code provided above or you could code your categorical exposure with '0' coded as the referent.
+
+As above, we will estimate the risk difference, risk ratio, odds ratio, and number needed to treat.
+
+```{r categorical_exposure, paged.print = FALSE}
+#number and percent of subjects in each BMI category 
+table(cvdd$bmicat)
+prop.table(table(cvdd$bmicat))*100
+
+set.seed(345)
+catExp.res <- gComp(data = cvdd, Y = "cvd_dth", X = "bmicat", Z = c("AGE", "SEX", "DIABETES", "CURSMOKE", "PREVHYP"), outcome.type = "binary", R = 200)
+
+catExp.res
+
+```
+From these results, we see that obese persons have the highest increase in 24-year risk of cardiovascular disease or death compared to normal weight persons. Underweight persons also have increased risk, more so than overweight persons. Not surprisingly, the estimate comparing underweight to normal weight persons is imprecise given the few people in the dataset who were underweight.
+
+
+## Continuous exposure example
+Question: what is the effect of a 10-year difference in age on the 24-year risk of cardiovascular disease or death due to any cause?
+
+Estimates can also be produced for continuous exposures. The default effects are produced for a one unit difference in the exposure at the mean value of the exposure variable. Under the hood, your continuous exposure is first centered at the mean, and then effects are estimated for a one unit difference. You can specify the exposure.scalar option to estimate effects for a more interpretable contrast, as desired. For example, if the continuous exposure is age in years, specifying the exposure.scalar option as 10 would result in effects for a 10 year difference in age, rather than a 1 year difference. We will try this below.
+
+As above, we will estimate the risk difference, risk ratio, odds ratio, and number needed to treat.
+
+```{r continuous_exposure, paged.print = FALSE}
+set.seed(4528)
+contExp.res <- gComp(data = cvdd, Y = "cvd_dth", X = "AGE", Z = c("BMI", "SEX", "DIABETES", "CURSMOKE", "PREVHYP"), outcome.type = "binary", exposure.scalar = 10, R = 200)
+
+contExp.res
+
+```
+These results demonstrate that the 24-year risk of cardiovascular disease or death increases by an absolute 24.3% (95% CI: 22.5%, 26.2%) for a 10 year increase in age. The risk difference, risk ratio, and NNT estimates specifically apply at the mean observed age, or 50 years. The odds ratio is constant regardless of which 10-year difference in age is considered along the observed range.
+
+NOTE: in this example, because the underlying parametric model for a binary outcome is logistic regression, the risks for a continuous exposure will be estimated to be linear on the log-odds (logit) scale, such that the odds ratio for any one unit increase in the continuous variable is constant. However, the risks will not be linear on the linear (risk difference) or log (risk ratio) scales, such that these parameters will not be constant across the range of the continuous exposure. Users should be aware that the risk difference, risk ratio, number needed to treat/harm (for a binary outcome) and the incidence rate difference (for a rate/count outcome) reported with a continuous exposure apply specifically at the mean of the continuous exposure. The effects do not necessarily apply across the entire range of the variable. However, variations in the effect are likely small, especially near the mean.
+
+
+## Rate outcome example
+While there was very little drop out in these data (<1%), let's say that we are interested in estimating the effect of diabetes on the rate of cardiovascular disease or death due to any cause. For this analysis, we will take into account the person-days at risk (**timeout**) and use Poisson regression as the underlying parametric model for g-computation. This analysis will estimate the incidence rate difference and incidence rate ratio.
+
+First, we need to modify the dataset to change the variable **cvd_dth** from a factor to a numeric variable since the outcome for Poisson regression must be numeric.
+```{r change_dataset_cvd_dth_to_numeric}
+cvdd.t <- cvdd %>%
+  dplyr::mutate(cvd_dth = as.numeric(as.character(cvd_dth)),
+                timeout = as.numeric(timeout))
+```
+
+Then, we can run the analysis as above, first setting the seed and then calling the gComp function. Note that we have specified the `outcome.type` as "rate" and included **timeout** as the offset. Because our **timeout** variable is in units of person-days, we have included a `rate.multiplier` of 365.25*100 so that the estimates are returned with units of 100 person-years.
+
+```{r rate_outcome, paged.print = FALSE}
+set.seed(6534)
+
+rate.res <- gComp(data = cvdd.t, Y = "cvd_dth", X = "DIABETES", Z = c("AGE", "SEX", "BMI", "CURSMOKE", "PREVHYP"), outcome.type = "rate", rate.multiplier = 365.25*100, offset = "timeout", R = 200)
+
+rate.res
+```
+  
+Alternatively, we could run the same analysis by first specifying the regression model formula.
+```{r, paged.print = FALSE}
+## Specify the regression formula
+cvdd.formula <- cvd_dth ~ DIABETES + AGE + SEX + BMI + CURSMOKE + PREVHYP
+
+set.seed(6534)
+## Call the gComp function
+rate.res.alt <- gComp(data = cvdd.t, formula = cvdd.formula, outcome.type = "rate", rate.multiplier = (365.25*100), offset = "timeout", R = 200)
+rate.res.alt
+
+```
+
+
+Similarly to the risk analysis above, this analysis suggests that there is a large effect of diabetes on cardiovascular disease. Specifically, the absolute rate of cardiovascular disease or death due to any cause is 2.19 cases/100 person-years (95% CI: 1.38, 3.26) higher among subjects with diabetes at baseline compared to subjects without diabetes at baseline. In relative terms, the rate is 91.3% (95% CI: 56.1, 133.9) higher. You will note that the incidence rate ratio is further from the null than the risk ratio, but closer to the null than the odds ratio. This is expected based on the mathematical properties of these effect measures.
+
+
+## Continuous outcome example
+Question: what is the effect of having diabetes at the beginning of the study on casual serum glucose (mg/dL) after 6 years of follow-up?
+
+This example estimates the marginal mean difference in the continuous outcome associated with the exposure. In this example, linear regression is used as the underlying parametric model for g-computation.
+
+```{r continuous_outcome, paged.print = FALSE}
+set.seed(9385)
+
+cont.res <- gComp(data = cvdd, Y = "glucoseyear6", X = "DIABETES", Z = c("AGE", "SEX", "BMI", "CURSMOKE", "PREVHYP"), outcome.type = "continuous", R = 200)
+
+cont.res
+```
+This analysis shows that individuals with diabetes at baseline have a 61.6 mg/dL (95% CI: 49.1, 80.8) higher casual serum glucose level after 6 years compared to individuals without diabetes at baseline.
+  
+## Count outcome example
+Question: what is the effect of having diabetes at the beginning of the study on the number of hospitalizations experienced over 24 years of follow-up?
+
+For this analysis, we will use Poisson regression as the underlying parametric model for g-computation because we have a count outcome. However, we will not include a person-time offset, since there was a fixed follow-up time for all individuals (24 years). This analysis will estimate the incidence rate difference, incidence rate ratio, and the number needed to treat.
+
+```{r count_outcome, paged.print = FALSE}
+set.seed(7295)
+
+count.formula <- "nhosp ~ DIABETES + AGE + SEX + BMI + CURSMOKE + PREVHYP"
+
+count.res <- gComp(data = cvdd, formula = count.formula, outcome.type = "count", R = 200)
+
+count.res
+```
+This analysis shows that individuals with diabetes at baseline have 0.05 (95% CI: -0.01, 0.10) more hospital admissions over the 24 years of follow-up compared to individuals without diabetes at baseline. In relative terms, individuals with diabetes have 53.7% (95% CI: -7.7, 116.4) more admissions than those without diabetes.
+
+
+# Checking model fit
+
+To ensure that the parameter estimates from each bootstrap iteration are normally distributed, we can also look at the histogram and Q-Q plots of bootstrapped estimates by calling:
+```{r catExp_binaryOutcome_plot, fig.width = 12, fig.height = 10, out.width = "100%"}
+plot(catExp.res)
+```
+
+We expect to see the histograms to look approximately normally distributed and the estimates to fall close to the dotted red line on the Q-Q plots.
+
+In order to facilitate plotting of the results, the `results.df` output contains a data.frame with all of the info needed to make your own results plot, as shown below:
+```{r catExp_binaryOutcome_resultsPlot, fig.height = 3, fig.width = 5, out.width = "100%"}
+ggplot(catExp.res$results.df %>% 
+         filter(Parameter %in% c("Risk Difference", "Risk Ratio"))
+) + 
+  geom_pointrange(aes(x = Comparison, 
+                      y = Estimate, 
+                      ymin = `2.5% CL`, 
+                      ymax = `97.5% CL`, 
+                      color = Comparison), 
+                  shape = 2
+  ) + 
+  coord_flip() + 
+  facet_wrap(~Parameter, scale = "free") + 
+  theme_bw() + 
+  theme(legend.position = "none")
+```
+
+
+
+You can also obtain the marginal mean predicted outcomes under each exposure level, i.e. what would be the predicted mean outcome had everyone been exposed (set exposure to 1) and had everyone been unexposed (set exposure to 0). These predicted outcomes are "adjusted" for covariates in that they have been standardized over the observed values of covariates included in the model. Therefore, this outcome prediction procedure does not require setting the covariates to specific values (at the mean values, for example). This is a major advantage over the usual `predict` function in R, or similar functions in other statistical programs (e.g. lsmeans statement in SAS).
+```{r catExp_binaryOutcome_predOutcomes, paged.print = FALSE}
+catExp.res$predicted.outcome
+```
+
+Additionally, if you are interested in examining the coefficient estimates and other components of the underlying `glm` that is also provided as an output.  The final item in the **gComp** class object is 'glm.result' which is a **glm** class object and can be manipulated like the results from a regular `glm` or `lm` object in R. For example, you can obtain the coefficient estimates of the fitted `glm` by using the `summary` function.
+```{r catExp_binaryOutcome_glm.result, paged.print = FALSE}
+
+summary(catExp.res$glm.result)
+
+```
+
+# Guidance on number of bootstraps
+To generate appropriate confidence intervals with bootstrapping, we recommend setting R = 1000  or 10000 for the final analysis. However, this can result in potentially long runtimes, depending on the computing power of your computer (>20min). Thus, exploratory analyses can be conducted with a lower number of bootstraps. The default is R = 200, which should compute on datasets of 5000-10000 observations in ~30s. An even lower R value (e.g. R = 20) can be used for very preliminary analyses.  Additionally, reducing the number of variables in your dataset to as few as possible can improve computation times, especially if there are >100 variables (the dataset is copied for each bootstrap resample, and copying excessive numbers of unneeded variables will slow down the bootstrap step). 
+
+# What's going on under the hood
+
+The `gComp` function essentially executes four steps:
+
+1. *Fits regression model.*   Fit a regression of the outcome on the exposure and relevant covariates, using the provided data set.}    
+2. *Predicts counterfactuals.*  Using the model fit in step 1, calculate predicted outcomes for each observation in the data set under each level of the treatment/exposure.    
+3. *Estimates the marginal difference/ratio of treatment effect.*  This is done by taking the difference or ratio of the average of all observations under the treatment/no treatment regimes.    
+4. *Estimates confidence interval with bootstrap resampling.*  We implement bootstrap resampling of the original dataset to estimate accurate standard errors as those generated in the original model are not correct when using g-computation. NOTE: the default number of bootstrap resamples (R = 20) was set for computational speed as users try out the function.  In order to obtain accurate confidence intervals, we recommend using R = 1000 or larger.
+
+
+Please see the references listed under the `gComp` or `pointEstimate` function for a more detailed explanation of g-computation.
+
+
+
+```{r}
+sessionInfo()
+```
