@@ -6,7 +6,7 @@
 \usage{
 gComp(
   data,
-  outcome.type = c("binary", "count", "rate", "continuous"),
+  outcome.type = c("binary", "count", "count_nb", "rate", "rate_nb", "continuous"),
   formula = NULL,
   Y = NULL,
   X = NULL,
@@ -32,11 +32,15 @@ they are specified.}
 type. Acceptable responses, and the corresponding error distribution and
 link function used in the \code{glm}, include: \describe{
 \item{binary}{(Default) A binomial distribution with link = 'logit' is
-used.} \item{count}{A Poisson distribution 
-with link = 'log' is used.}
+used.} 
+\item{count}{A Poisson distribution with link = 'log' is used.}
+\item{count_nb}{A negative binomial model with link = 'log' is used, where the theta 
+parameter is estimated internally; ideal for over-dispersed count data.}
 \item{rate}{A Poisson distribution with link = 'log' is used; ideal for 
- events/person-time outcomes.} \item{continuous}{A gaussian distribution 
- with link = 'identity' is used.}
+ events/person-time outcomes.} 
+ \item{rate_nb}{A negative binomial model with link = 'log' is used, where the theta 
+parameter is estimated internally; ideal for over-dispersed events/person-time outcomes.}
+ \item{continuous}{A gaussian distribution with link = 'identity' is used.}
 }}
 
 \item{formula}{(Optional) Default NULL. An object of class "formula" (or one
@@ -53,8 +57,8 @@ outcome variable. Can optionally provide a formula instead of \code{Y} and
 exposure variable (or treatment group assignment), which can be binary,
 categorical, or continuous. This variable can be supplied as a factor
 variable (for binary or categorical exposures) or a continuous variable.
-For binary/categorical exposures, \code{X} should be supplied as a factor with 
-the lowest level set to the desired referent. Numeric variables are 
+For binary/categorical exposures, \code{X} should be supplied as a factor 
+with the lowest level set to the desired referent. Numeric variables are 
 accepted, but will be centered (see Note). Character variables are not 
 accepted and will throw an error. Can optionally provide a formula
 instead of \code{Y} and \code{X} variables.}
@@ -69,18 +73,20 @@ subgroups for stratified analysis. Effects will be reported for each
 category of the subgroup variable. Variable will be automatically converted
 to a factor if not already.}
 
-\item{offset}{(Optional, only applicable for rate outcomes) Default NULL.
-Character argument which specifies the person-time denominator for rate
-outcomes to be included as an offset in the Poisson regression model.
-Numeric variable should be on the linear scale; function will take natural
-log before including in the model.}
+\item{offset}{(Optional, only applicable for rate/count outcomes) Default NULL.
+Character argument which specifies the variable name to be used as the 
+person-time denominator for rate outcomes to be included as an offset in the
+Poisson regression model. Numeric variable should be on the linear scale; 
+function will take natural log before including in the model.}
 
-\item{rate.multiplier}{(Optional, only applicable for rate outcomes) Default
-1. Numeric value to multiply to the rate-based effect measures. This option
-facilitates reporting effects with interpretable person-time denominators.
-For example, if the person-time variable (offset) is in days, a multiplier
-of 365*100 would result in estimates of rate differences per 100
-person-years.}
+\item{rate.multiplier}{(Optional, only applicable for rate/count outcomes). 
+Default 1 Numeric variable signifying the person-time value to use in 
+predictions; the offset variable will be set to this when predicting under 
+the counterfactual conditions. This value should be set to the person-time 
+denominator desired for the rate difference measure and must be inputted in 
+the units of the original offset variable (e.g. if the offset variable is 
+in days and the desired rate difference is the rate per 100 person-years, 
+rate.multiplier should be inputted as 365.25*100).}
 
 \item{exposure.scalar}{(Optional, only applicable for continuous exposure)
 Default 1. Numeric value to scale effects with a continuous exposure. This 
@@ -112,10 +118,11 @@ parallel operations to be used.  This argument is passed directly to \code{\link
 An object of class \code{gComp} which is a named list with components:
 
   \item{$summary}{Summary providing parameter estimates and 95\% confidence
-  limits of the outcome difference and ratio} 
+  limits of the outcome difference and ratio (in a print-pretty format)} 
   \item{$results.df}{Data.frame with parameter estimates, 2.5\% confidence 
-  limit, and 97.5\% confidence limit each as a column} 
-  \item{$n}{Number of observations in the original dataset} 
+  limit, and 97.5\% confidence limit each as a column (which can be used for easy 
+  incorporation into tables for publication)} 
+  \item{$n}{Number of unique observations in the original dataset} 
   \item{$R}{Number of bootstrap iterations}
   \item{$boot.result}{Data.frame containing the results of the \code{R}
   bootstrap iterations of the g-computation} 
@@ -151,6 +158,14 @@ The \code{gComp} function executes the following steps:
   As bootstrap resamples are generated with random sampling, users should
   set a seed (\code{\link{set.seed}} for reproducible
   confidence intervals.
+  
+  While offsets are used to account for differences in follow-up time 
+  between individuals in the \code{glm} model, rate differences are 
+  calculated assuming equivalent follow-up of all individuals (i.e. 
+  predictions for each exposure are based on all observations having the 
+  same offset value). The default is 1 (specifying 1 unit of the original 
+  offset variable) or the user can specify an offset to be used in the 
+  predictions with the rate.multiplier argument.
 }
 \note{
 Note that for a protective exposure (risk difference less than 0), the 
@@ -203,33 +218,33 @@ outcome.type = "binary", R = 20)
 Ahern J, Hubbard A, Galea S. Estimating the effects of potential public health 
   interventions on population disease burden: a step-by-step illustration of 
   causal inference methods. Am. J. Epidemiol. 2009;169(9):1140–1147.
-  \href{https://doi.org/10.1093/aje/kwp015}{Manuscript link}
+  \doi{10.1093/aje/kwp015}
  
  Altman DG, Deeks JJ, Sackett DL. Odds ratios should be avoided when events 
-  are common. BMJ. 1998;317(7168):1318. \href{https://doi.org/10.1136/bmj.317.7168.1318 }{Manuscript link}
+  are common. BMJ. 1998;317(7168):1318. \doi{10.1136/bmj.317.7168.1318}
 
  Hernán MA, Robins JM (2020). Causal Inference: What If. Boca Raton: 
-  Chapman & Hall/CRC. /href{https://www.hsph.harvard.edu/miguel-hernan/causal-inference-book/}{Book link}
+  Chapman & Hall/CRC. \href{https://www.hsph.harvard.edu/miguel-hernan/causal-inference-book/}{Book link}
 
  Hutton JL. Number needed to treat: properties and problems. Journal of the 
   Royal Statistical Society: Series A (Statistics in Society). 2000;163(3):381–402.
-  \href{https://doi.org/10.1111/1467-985X.00175}{Manuscript link}
+  \doi{10.1111/1467-985X.00175}
 
  Robins J. A new approach to causal inference in mortality studies with a 
   sustained exposure period—application to control of the healthy worker 
-  survivor effect. Mathematical Modelling. 1986;7(9):1393–1512. \href{https://doi.org/10.1016/0270-0255(86)90088-6}{Manuscript link}
+  survivor effect. Mathematical Modelling. 1986;7(9):1393–1512. \doi{10.1016/0270-0255(86)90088-6}
   
  Snowden JM, Rose S, Mortimer KM. Implementation of G-computation on a 
   simulated data set: demonstration of a causal inference technique. 
-  Am. J. Epidemiol. 2011;173(7):731–738. \href{https://doi.org/10.1093/aje/kwq472}{Manuscript link}
+  Am. J. Epidemiol. 2011;173(7):731–738. \doi{10.1093/aje/kwq472}
   
  Stang A, Poole C, Bender R. Common problems related to the use of number 
   needed to treat. Journal of Clinical Epidemiology. 2010;63(8):820–825. 
-  \href{https://doi.org/10.1016/j.jclinepi.2009.08.006}{Manuscript link}
+  \doi{10.1016/j.jclinepi.2009.08.006}
   
  Westreich D, Cole SR, Young JG, et al. The parametric g-formula to 
   estimate the effect of highly active antiretroviral therapy on incident 
-   AIDS or death. Stat Med. 2012;31(18):2000–2009. \href{https://doi.org/10.1002/sim.5316}{Manuscript link}
+   AIDS or death. Stat Med. 2012;31(18):2000–2009. \doi{10.1002/sim.5316}
 }
 \seealso{
 \code{\link{pointEstimate}} \code{\link[boot]{boot}}

@@ -5,8 +5,7 @@ knitr::opts_chunk$set(
 )
 
 ## ----installation, eval = F---------------------------------------------------
-#  library(devtools)
-#  devtools::install_github("jgrembi/riskCommunicator")
+#  install.packages("riskCommunicator")
 
 ## ----setup--------------------------------------------------------------------
 library(riskCommunicator)
@@ -32,7 +31,12 @@ str(cvdd$educ)
 cvdd.break <- cvdd %>% 
   mutate(PREVHYP = as.character(PREVHYP))
   
-binary.res.break <- gComp(data = cvdd.break, Y = "cvd_dth", X = "DIABETES", Z = c("AGE", "SEX", "BMI", "CURSMOKE", "PREVHYP"), outcome.type = "binary", R = 200)
+binary.res.break <- gComp(data = cvdd.break, 
+                          Y = "cvd_dth", 
+                          X = "DIABETES", 
+                          Z = c("AGE", "SEX", "BMI", "CURSMOKE", "PREVHYP"), 
+                          outcome.type = "binary", 
+                          R = 200)
 
 ## ----factor_check-------------------------------------------------------------
 str(cvdd$educ)
@@ -56,17 +60,37 @@ cvdd.formula <- cvd_dth ~ DIABETES + AGE + SEX + BMI + CURSMOKE + PREVHYP
 set.seed(1298)
 
 ## Call the gComp function
-binary.res <- gComp(data = cvdd, formula = cvdd.formula, outcome.type = "binary", R = 200)
+binary.res <- gComp(data = cvdd, 
+                    formula = cvdd.formula, 
+                    outcome.type = "binary", 
+                    R = 200)
 
 ## ----binary_outcome_noFormula-------------------------------------------------
 set.seed(1298)
 
-binary.res.alt <- gComp(data = cvdd, Y = "cvd_dth", X = "DIABETES", Z = c("AGE", "SEX", "BMI", "CURSMOKE", "PREVHYP"), outcome.type = "binary", R = 200)
+binary.res.alt <- gComp(data = cvdd, 
+                        Y = "cvd_dth", 
+                        X = "DIABETES", 
+                        Z = c("AGE", "SEX", "BMI", "CURSMOKE", "PREVHYP"), 
+                        outcome.type = "binary", 
+                        R = 200)
 
 ## ----binary_outcome_defaults--------------------------------------------------
 set.seed(1298)
 
-binary.res.alt2 <- gComp(data = cvdd, formula = cvdd.formula, outcome.type = "binary", R = 200, Y = NULL, X = NULL, Z = NULL, subgroup = NULL, offset = NULL, rate.multiplier = 1, clusterID = NULL, parallel = "no", ncpus = 1)
+binary.res.alt2 <- gComp(data = cvdd, 
+                         formula = cvdd.formula, 
+                         outcome.type = "binary", 
+                         R = 200, 
+                         Y = NULL, 
+                         X = NULL, 
+                         Z = NULL, 
+                         subgroup = NULL, 
+                         offset = NULL, 
+                         rate.multiplier = 1, 
+                         clusterID = NULL, 
+                         parallel = "no", 
+                         ncpus = 1)
 
 ## ----binary_results_check, paged.print = FALSE--------------------------------
 binary.res
@@ -86,7 +110,13 @@ binary.res$contrast
 ## ----binary_outcome_subgroup, paged.print = FALSE-----------------------------
 set.seed(1298)
 
-binary.res.subgroup <- gComp(data = cvdd, Y = "cvd_dth", X = "DIABETES", Z = c("AGE", "SEX", "BMI", "CURSMOKE", "PREVHYP"), subgroup = "SEX", outcome.type = "binary", R = 200)
+binary.res.subgroup <- gComp(data = cvdd, 
+                             Y = "cvd_dth", 
+                             X = "DIABETES", 
+                             Z = c("AGE", "SEX", "BMI", "CURSMOKE", "PREVHYP"), 
+                             subgroup = "SEX", 
+                             outcome.type = "binary", 
+                             R = 200)
 
 binary.res.subgroup
 
@@ -96,14 +126,25 @@ table(cvdd$bmicat)
 prop.table(table(cvdd$bmicat))*100
 
 set.seed(345)
-catExp.res <- gComp(data = cvdd, Y = "cvd_dth", X = "bmicat", Z = c("AGE", "SEX", "DIABETES", "CURSMOKE", "PREVHYP"), outcome.type = "binary", R = 200)
+catExp.res <- gComp(data = cvdd, 
+                    Y = "cvd_dth", 
+                    X = "bmicat", 
+                    Z = c("AGE", "SEX", "DIABETES", "CURSMOKE", "PREVHYP"), 
+                    outcome.type = "binary", 
+                    R = 200)
 
 catExp.res
 
 
 ## ----continuous_exposure, paged.print = FALSE---------------------------------
 set.seed(4528)
-contExp.res <- gComp(data = cvdd, Y = "cvd_dth", X = "AGE", Z = c("BMI", "SEX", "DIABETES", "CURSMOKE", "PREVHYP"), outcome.type = "binary", exposure.scalar = 10, R = 200)
+contExp.res <- gComp(data = cvdd, 
+                     Y = "cvd_dth", 
+                     X = "AGE", 
+                     Z = c("BMI", "SEX", "DIABETES", "CURSMOKE", "PREVHYP"), 
+                     outcome.type = "binary", 
+                     exposure.scalar = 10, 
+                     R = 200)
 
 contExp.res
 
@@ -116,7 +157,14 @@ cvdd.t <- cvdd %>%
 ## ----rate_outcome, paged.print = FALSE----------------------------------------
 set.seed(6534)
 
-rate.res <- gComp(data = cvdd.t, Y = "cvd_dth", X = "DIABETES", Z = c("AGE", "SEX", "BMI", "CURSMOKE", "PREVHYP"), outcome.type = "rate", rate.multiplier = 365.25*100, offset = "timeout", R = 200)
+rate.res <- gComp(data = cvdd.t, 
+                  Y = "cvd_dth", 
+                  X = "DIABETES", 
+                  Z = c("AGE", "SEX", "BMI", "CURSMOKE", "PREVHYP"), 
+                  outcome.type = "rate", 
+                  rate.multiplier = 365.25*100, 
+                  offset = "timeout", 
+                  R = 200)
 
 rate.res
 
@@ -126,14 +174,24 @@ cvdd.formula <- cvd_dth ~ DIABETES + AGE + SEX + BMI + CURSMOKE + PREVHYP
 
 set.seed(6534)
 ## Call the gComp function
-rate.res.alt <- gComp(data = cvdd.t, formula = cvdd.formula, outcome.type = "rate", rate.multiplier = (365.25*100), offset = "timeout", R = 200)
+rate.res.alt <- gComp(data = cvdd.t, 
+                      formula = cvdd.formula, 
+                      outcome.type = "rate", 
+                      rate.multiplier = (365.25*100), 
+                      offset = "timeout", 
+                      R = 200)
 rate.res.alt
 
 
 ## ----continuous_outcome, paged.print = FALSE----------------------------------
 set.seed(9385)
 
-cont.res <- gComp(data = cvdd, Y = "glucoseyear6", X = "DIABETES", Z = c("AGE", "SEX", "BMI", "CURSMOKE", "PREVHYP"), outcome.type = "continuous", R = 200)
+cont.res <- gComp(data = cvdd, 
+                  Y = "glucoseyear6", 
+                  X = "DIABETES", 
+                  Z = c("AGE", "SEX", "BMI", "CURSMOKE", "PREVHYP"), 
+                  outcome.type = "continuous", 
+                  R = 200)
 
 cont.res
 
@@ -142,7 +200,10 @@ set.seed(7295)
 
 count.formula <- "nhosp ~ DIABETES + AGE + SEX + BMI + CURSMOKE + PREVHYP"
 
-count.res <- gComp(data = cvdd, formula = count.formula, outcome.type = "count", R = 200)
+count.res <- gComp(data = cvdd, 
+                   formula = count.formula, 
+                   outcome.type = "count", 
+                   R = 200)
 
 count.res
 

@@ -24,10 +24,11 @@
 #' @return An object of class \code{gComp} which is a named list with components:
 #'
 #'   \item{$summary}{Summary providing parameter estimates and 95\% confidence
-#'   limits of the outcome difference and ratio} 
+#'   limits of the outcome difference and ratio (in a print-pretty format)} 
 #'   \item{$results.df}{Data.frame with parameter estimates, 2.5\% confidence 
-#'   limit, and 97.5\% confidence limit each as a column} 
-#'   \item{$n}{Number of observations in the original dataset} 
+#'   limit, and 97.5\% confidence limit each as a column (which can be used for easy 
+#'   incorporation into tables for publication)} 
+#'   \item{$n}{Number of unique observations in the original dataset} 
 #'   \item{$R}{Number of bootstrap iterations}
 #'   \item{$boot.result}{Data.frame containing the results of the \code{R}
 #'   bootstrap iterations of the g-computation} 
@@ -58,6 +59,14 @@
 #'   As bootstrap resamples are generated with random sampling, users should
 #'   set a seed (\code{\link{set.seed}} for reproducible
 #'   confidence intervals.
+#'   
+#'   While offsets are used to account for differences in follow-up time 
+#'   between individuals in the \code{glm} model, rate differences are 
+#'   calculated assuming equivalent follow-up of all individuals (i.e. 
+#'   predictions for each exposure are based on all observations having the 
+#'   same offset value). The default is 1 (specifying 1 unit of the original 
+#'   offset variable) or the user can specify an offset to be used in the 
+#'   predictions with the rate.multiplier argument.
 #'  
 #' @note
 #'  Note that for a protective exposure (risk difference less than 0), the 
@@ -94,7 +103,7 @@
 #'   exposure. The effects do not necessarily apply across the entire range of 
 #'   the variable. However, variations in the effect are likely small, 
 #'   especially near the mean.
-#'     
+#'        
 #' @note 
 #'  The documentation for \code{\link[boot]{boot}} includes details about 
 #'  reproducible seeds when using parallel computing.   
@@ -105,33 +114,33 @@
 #'  Ahern J, Hubbard A, Galea S. Estimating the effects of potential public health 
 #'   interventions on population disease burden: a step-by-step illustration of 
 #'   causal inference methods. Am. J. Epidemiol. 2009;169(9):1140–1147.
-#'   \href{https://doi.org/10.1093/aje/kwp015}{Manuscript link}
+#'   \doi{10.1093/aje/kwp015}
 #'  
 #'  Altman DG, Deeks JJ, Sackett DL. Odds ratios should be avoided when events 
-#'   are common. BMJ. 1998;317(7168):1318. \href{https://doi.org/10.1136/bmj.317.7168.1318 }{Manuscript link}
+#'   are common. BMJ. 1998;317(7168):1318. \doi{10.1136/bmj.317.7168.1318}
 #' 
 #'  Hernán MA, Robins JM (2020). Causal Inference: What If. Boca Raton: 
-#'   Chapman & Hall/CRC. /href{https://www.hsph.harvard.edu/miguel-hernan/causal-inference-book/}{Book link}
+#'   Chapman & Hall/CRC. \href{https://www.hsph.harvard.edu/miguel-hernan/causal-inference-book/}{Book link}
 #' 
 #'  Hutton JL. Number needed to treat: properties and problems. Journal of the 
 #'   Royal Statistical Society: Series A (Statistics in Society). 2000;163(3):381–402.
-#'   \href{https://doi.org/10.1111/1467-985X.00175}{Manuscript link}
+#'   \doi{10.1111/1467-985X.00175}
 #'
 #'  Robins J. A new approach to causal inference in mortality studies with a 
 #'   sustained exposure period—application to control of the healthy worker 
-#'   survivor effect. Mathematical Modelling. 1986;7(9):1393–1512. \href{https://doi.org/10.1016/0270-0255(86)90088-6}{Manuscript link}
+#'   survivor effect. Mathematical Modelling. 1986;7(9):1393–1512. \doi{10.1016/0270-0255(86)90088-6}
 #'   
 #'  Snowden JM, Rose S, Mortimer KM. Implementation of G-computation on a 
 #'   simulated data set: demonstration of a causal inference technique. 
-#'   Am. J. Epidemiol. 2011;173(7):731–738. \href{https://doi.org/10.1093/aje/kwq472}{Manuscript link}
+#'   Am. J. Epidemiol. 2011;173(7):731–738. \doi{10.1093/aje/kwq472}
 #'   
 #'  Stang A, Poole C, Bender R. Common problems related to the use of number 
 #'   needed to treat. Journal of Clinical Epidemiology. 2010;63(8):820–825. 
-#'   \href{https://doi.org/10.1016/j.jclinepi.2009.08.006}{Manuscript link}
+#'   \doi{10.1016/j.jclinepi.2009.08.006}
 #'   
 #'  Westreich D, Cole SR, Young JG, et al. The parametric g-formula to 
 #'   estimate the effect of highly active antiretroviral therapy on incident 
-#'    AIDS or death. Stat Med. 2012;31(18):2000–2009. \href{https://doi.org/10.1002/sim.5316}{Manuscript link}
+#'    AIDS or death. Stat Med. 2012;31(18):2000–2009. \doi{10.1002/sim.5316}
 #'   
 #' @examples
 #' ## Obtain the risk difference and risk ratio for cardiovascular disease or death between
@@ -153,7 +162,7 @@
 #' @seealso \code{\link{pointEstimate}} \code{\link[boot]{boot}}
 #'   
 gComp <- function(data, 
-                  outcome.type =  c("binary", "count","rate", "continuous"), 
+                  outcome.type =  c("binary", "count","count_nb", "rate", "rate_nb", "continuous"), 
                   formula = NULL, 
                   Y = NULL, 
                   X = NULL, 
@@ -187,22 +196,35 @@ gComp <- function(data,
   }
   
   # Get point estimate for diff and ratio
-  pt_estimate <- pointEstimate(data, outcome.type = outcome.type, formula = formula, Y = Y, X = X, Z = Z, subgroup = subgroup, offset = offset, rate.multiplier = rate.multiplier, exposure.scalar = exposure.scalar, exposure.center = X_mean)
+  pt_estimate <- pointEstimate(data, outcome.type = outcome.type, formula = formula, Y = Y, X = X, Z = Z, 
+                               offset = offset, rate.multiplier = rate.multiplier, 
+                               subgroup = subgroup, 
+                               exposure.scalar = exposure.scalar, exposure.center = X_mean)
   
   ####### Run bootstrap resampling, calculate point estimate for each resample, and get 95% CI for estimates
-  # Define bootsrap statistic
-  fun.statistic <- function(x, idx, outcome.type = outcome.type, offset = offset, formula = formula, 
-                            Y = Y, X = X, Z = Z, subgroup = subgroup, rate.multiplier = rate.multiplier, 
+  # Define bootstrap statistic
+  fun.statistic <- function(x, idx, outcome.type = outcome.type, 
+                            formula = formula, Y = Y, X = X, Z = Z, 
+                            offset = offset, rate.multiplier = rate.multiplier, 
+                            subgroup = subgroup, 
                             exposure.scalar = exposure.scalar, exposure.center = exposure.center, 
                             clusters = clusters) {
     
     if (is.null(clusters)) {
-      estimate <- suppressMessages(pointEstimate(x[idx,], outcome.type = outcome.type, offset = offset, formula = formula, Y = Y, X = X, Z = Z, subgroup = subgroup, rate.multiplier = rate.multiplier, exposure.scalar = exposure.scalar, exposure.center = exposure.center))
+      estimate <- suppressMessages(pointEstimate(x[idx,], outcome.type = outcome.type, 
+                                                 formula = formula, Y = Y, X = X, Z = Z, 
+                                                 offset = offset, rate.multiplier = rate.multiplier, 
+                                                 subgroup = subgroup, 
+                                                 exposure.scalar = exposure.scalar, exposure.center = exposure.center))
     } else {
       cls <- sample(clusters, size = length(clusters), replace = TRUE)
       df.bs <- lapply(cls, function(b) subset(x, x[[clusterID]] == b))
       df.bs <- do.call(rbind, df.bs)
-      estimate <- suppressMessages(pointEstimate(df.bs, outcome.type = outcome.type, offset = offset, formula = formula, Y = Y, X = X, Z = Z, subgroup = subgroup, rate.multiplier = rate.multiplier, exposure.scalar = exposure.scalar, exposure.center = exposure.center))
+      estimate <- suppressMessages(pointEstimate(df.bs, outcome.type = outcome.type, 
+                                                 formula = formula, Y = Y, X = X, Z = Z, 
+                                                 offset = offset, rate.multiplier = rate.multiplier, 
+                                                 subgroup = subgroup, 
+                                                 exposure.scalar = exposure.scalar, exposure.center = exposure.center))
     }
     if (length(names(estimate$parameter.estimates)) > 1) {
       output <- sapply(names(estimate$parameter.estimates), function (n) c(estimate$parameter.estimates[[n]], estimate$predicted.outcome[[n]]))
@@ -217,7 +239,8 @@ gComp <- function(data,
   # Run bootstrap iterations
   boot_out <- boot::boot(data = data, statistic = fun.statistic, R = R, parallel = parallel, ncpus = ncpus, 
                          outcome.type = outcome.type, formula = formula, Y = Y, X = X, Z = Z,
-                         subgroup = subgroup, offset = offset, rate.multiplier = rate.multiplier, 
+                         offset = offset, rate.multiplier = rate.multiplier, 
+                         subgroup = subgroup,  
                          exposure.scalar = exposure.scalar, exposure.center = X_mean, clusters = clusters)
   
   # Format output from boot function
