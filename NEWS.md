@@ -1,3 +1,10 @@
+# riskCommunicator 1.0.1
+
+* Added a summary method for class `gComp` objects
+
+* Added additional error checks for the the new summary and print methods
+
+
 # riskCommunicator 1.0.0
 
 * Added functionality to use negative binomial distribution for overdispersed count/rate outcomes with outcome.type = "count_nb" or outcome.type = "rate_nb".
@@ -13,6 +20,7 @@
 * Added a `NEWS.md` file to track changes to the package
 
 * Updated vignette titles to be more descriptive.
+
 
 # riskCommunicator 0.1.0
 

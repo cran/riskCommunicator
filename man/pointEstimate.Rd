@@ -77,7 +77,7 @@ Poisson regression model. Numeric variable should be on the linear scale;
 function will take natural log before including in the model.}
 
 \item{rate.multiplier}{(Optional, only applicable for rate/count outcomes). 
-Default 1 Numeric variable signifying the person-time value to use in 
+Default 1. Numeric variable signifying the person-time value to use in 
 predictions; the offset variable will be set to this when predicting under 
 the counterfactual conditions. This value should be set to the person-time 
 denominator desired for the rate difference measure and must be inputted in 
@@ -132,18 +132,17 @@ The \code{pointEstimate} function executes the following steps on
   \enumerate{ 
   \item Fit a regression of the outcome on the exposure
   and relevant covariates, using the provided data set. 
-  \item Using the
-  modelfit in step 1, predict counterfactuals (e.g. calculate predicted
-  outcomes for each observation in the data set under each level of the
-  treatment/exposure). 
+  \item Using the model fit in step 1, predict counterfactuals (e.g. 
+  calculate predicted outcomes for each observation in the data set under 
+  each level of the treatment/exposure). 
   \item Estimate the marginal difference/ratio of treatment effect by 
   taking the difference or ratio of the average of all observations under 
   the treatment/no treatment regimes. 
   }
 
   As counterfactual predictions are generated with random sampling of the
-  distribution, users should set a seed (\code{\link{set.seed}}) for
-  reproducible confidence intervals.
+  distribution, users should set a seed (\code{\link{set.seed}}) prior to 
+  calling the function for reproducible confidence intervals.
 }
 \note{
 While offsets are used to account for differences in follow-up time 
@@ -174,6 +173,16 @@ For continuous exposure variables, the default effects are provided
   exposure. The effects do not necessarily apply across the entire range of 
   the variable. However, variations in the effect are likely small, 
   especially near the mean.
+  
+ @note       
+ Interaction terms are not allowed in the model formula. The \code{subgroup} 
+  argument affords interaction between the exposure variable and a single 
+  covariate (that is forced to categorical if supplied as numeric) to 
+  estimate effects of the exposure within subgroups defined by the 
+  interacting covariate. To include additional interaction terms with 
+  variables other than the exposure, we recommend that users create the 
+  interaction term as a cross-product of the two interaction variables in  
+  a data cleaning step prior to running the model.
   
  @note 
   For negative binomial models, \code{MASS::glm.nb} is used instead of the

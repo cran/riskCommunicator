@@ -3,13 +3,15 @@
 #'
 #' @description Print results from bootstrap computations of the g-computation
 #'
-#' @param x (Required) An object of class \code{gComp}.
+#' @param x (Required) An object of class \code{gComp} as produced by \code{gComp()}.
 #' @param ... (Optional) Further arguments passed to or from other methods.
 #'
-#' @return The resulting point estimate and 95% confidence intervals of the
-#'   difference and ratio.
+#' @return Returns the formula and resulting point estimate and 95\% 
+#' confidence intervals of the difference and ratio. 
+#' 
+#'   
 #' @export
-#' @method print gComp
+#' @method print gComp 
 #'
 #' @examples
 #' ## Obtain the risk difference and risk ratio for cardiovascular disease or 
@@ -18,25 +20,22 @@
 #' ## if they have a history of hypertension.
 #' data(cvdd)
 #' set.seed(4832)
-#' diabetes.result <- gComp(data = cvdd, Y = "cvd_dth", X = "bmicat",
-#' Z = c("AGE", "SEX", "DIABETES", "CURSMOKE", "PREVHYP"), outcome.type = "binary", R = 20)
+#' diabetes.result <- gComp(cvdd, 
+#'    formula = "cvd_dth ~ DIABETES + AGE + SEX + BMI + CURSMOKE + PREVHYP",
+#'    outcome.type = "binary", R = 20)
 #' print(diabetes.result)
 #'
 #'
-#' @keywords print.gComp
+#' @keywords print.gComp 
 
 
 
 
 print.gComp <- function(x, ...) {
   cat("Formula:", "\n")
-  cat(format(x$formula), "\n") 
+  cat(format(x$formula, width = 60), "\n") 
   cat("\n")
   cat("Parameter estimates:", "\n")
   print(format(x$summary))
   
 }
-
-
-
-

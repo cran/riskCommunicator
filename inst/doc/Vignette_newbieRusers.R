@@ -1,33 +1,33 @@
-## ---- include = FALSE---------------------------------------------------------
+## ---- include = FALSE-------------------------------------
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
 )
 
-## ----installation, eval = F---------------------------------------------------
+## ----installation, eval = F-------------------------------
 #  install.packages("riskCommunicator")
 
-## ----setup--------------------------------------------------------------------
+## ----setup------------------------------------------------
 library(riskCommunicator)
 library(tidyverse)
 library(printr)
 
-## ---- printr.help.sections = c('usage','arguments')---------------------------
+## ---- printr.help.sections = c('usage','arguments')-------
 ?gComp
 
-## ----load_other_data, eval = FALSE--------------------------------------------
+## ----load_other_data, eval = FALSE------------------------
 #  mydata <- read.csv("C:/your/file/path/yourdata.csv")
 
-## ----dataset------------------------------------------------------------------
+## ----dataset----------------------------------------------
 data(cvdd)
 
-## ----variable_check-----------------------------------------------------------
+## ----variable_check---------------------------------------
 cvdd$educ <- as.factor(cvdd$educ)
 #educ is now a factor with 4 levels
 
 str(cvdd$educ)
 
-## ----error = TRUE-------------------------------------------------------------
+## ----error = TRUE-----------------------------------------
 cvdd.break <- cvdd %>% 
   mutate(PREVHYP = as.character(PREVHYP))
   
@@ -38,7 +38,7 @@ binary.res.break <- gComp(data = cvdd.break,
                           outcome.type = "binary", 
                           R = 200)
 
-## ----factor_check-------------------------------------------------------------
+## ----factor_check-----------------------------------------
 str(cvdd$educ)
 
 cvdd$educ <- factor(cvdd$educ,levels = c("4","1","2","3"))
@@ -46,12 +46,12 @@ cvdd$educ <- factor(cvdd$educ,levels = c("4","1","2","3"))
 
 str(cvdd$educ)
 
-## -----------------------------------------------------------------------------
+## ---------------------------------------------------------
 cvdd %>%
  select(everything()) %>%
  summarise_all(list(~sum(is.na(.))))
 
-## ----binary_outcome, paged.print = FALSE--------------------------------------
+## ----binary_outcome, paged.print = FALSE------------------
 
 ## Specify the regression formula
 cvdd.formula <- cvd_dth ~ DIABETES + AGE + SEX + BMI + CURSMOKE + PREVHYP
@@ -65,7 +65,7 @@ binary.res <- gComp(data = cvdd,
                     outcome.type = "binary", 
                     R = 200)
 
-## ----binary_outcome_noFormula-------------------------------------------------
+## ----binary_outcome_noFormula-----------------------------
 set.seed(1298)
 
 binary.res.alt <- gComp(data = cvdd, 
@@ -75,7 +75,7 @@ binary.res.alt <- gComp(data = cvdd,
                         outcome.type = "binary", 
                         R = 200)
 
-## ----binary_outcome_defaults--------------------------------------------------
+## ----binary_outcome_defaults------------------------------
 set.seed(1298)
 
 binary.res.alt2 <- gComp(data = cvdd, 
@@ -92,11 +92,11 @@ binary.res.alt2 <- gComp(data = cvdd,
                          parallel = "no", 
                          ncpus = 1)
 
-## ----binary_results_check, paged.print = FALSE--------------------------------
+## ----binary_results_check, paged.print = FALSE------------
 binary.res
 print(binary.res)
 
-## ----gComp_class_explaination-------------------------------------------------
+## ----gComp_class_explaination-----------------------------
 class(binary.res)
 # The names of the different items in the list 
 names(binary.res)
@@ -107,7 +107,10 @@ binary.res$n
 # To see the contrast being compared in the analysis:
 binary.res$contrast
 
-## ----binary_outcome_subgroup, paged.print = FALSE-----------------------------
+## ---------------------------------------------------------
+summary(binary.res)
+
+## ----binary_outcome_subgroup, paged.print = FALSE---------
 set.seed(1298)
 
 binary.res.subgroup <- gComp(data = cvdd, 
@@ -120,7 +123,7 @@ binary.res.subgroup <- gComp(data = cvdd,
 
 binary.res.subgroup
 
-## ----categorical_exposure, paged.print = FALSE--------------------------------
+## ----categorical_exposure, paged.print = FALSE------------
 #number and percent of subjects in each BMI category 
 table(cvdd$bmicat)
 prop.table(table(cvdd$bmicat))*100
@@ -136,7 +139,7 @@ catExp.res <- gComp(data = cvdd,
 catExp.res
 
 
-## ----continuous_exposure, paged.print = FALSE---------------------------------
+## ----continuous_exposure, paged.print = FALSE-------------
 set.seed(4528)
 contExp.res <- gComp(data = cvdd, 
                      Y = "cvd_dth", 
@@ -149,12 +152,12 @@ contExp.res <- gComp(data = cvdd,
 contExp.res
 
 
-## ----change_dataset_cvd_dth_to_numeric----------------------------------------
+## ----change_dataset_cvd_dth_to_numeric--------------------
 cvdd.t <- cvdd %>%
   dplyr::mutate(cvd_dth = as.numeric(as.character(cvd_dth)),
                 timeout = as.numeric(timeout))
 
-## ----rate_outcome, paged.print = FALSE----------------------------------------
+## ----rate_outcome, paged.print = FALSE--------------------
 set.seed(6534)
 
 rate.res <- gComp(data = cvdd.t, 
@@ -168,7 +171,7 @@ rate.res <- gComp(data = cvdd.t,
 
 rate.res
 
-## ---- paged.print = FALSE-----------------------------------------------------
+## ---- paged.print = FALSE---------------------------------
 ## Specify the regression formula
 cvdd.formula <- cvd_dth ~ DIABETES + AGE + SEX + BMI + CURSMOKE + PREVHYP
 
@@ -183,7 +186,7 @@ rate.res.alt <- gComp(data = cvdd.t,
 rate.res.alt
 
 
-## ----continuous_outcome, paged.print = FALSE----------------------------------
+## ----continuous_outcome, paged.print = FALSE--------------
 set.seed(9385)
 
 cont.res <- gComp(data = cvdd, 
@@ -195,7 +198,7 @@ cont.res <- gComp(data = cvdd,
 
 cont.res
 
-## ----count_outcome, paged.print = FALSE---------------------------------------
+## ----count_outcome, paged.print = FALSE-------------------
 set.seed(7295)
 
 count.formula <- "nhosp ~ DIABETES + AGE + SEX + BMI + CURSMOKE + PREVHYP"
@@ -226,14 +229,14 @@ ggplot(catExp.res$results.df %>%
   theme_bw() + 
   theme(legend.position = "none")
 
-## ----catExp_binaryOutcome_predOutcomes, paged.print = FALSE-------------------
+## ----catExp_binaryOutcome_predOutcomes, paged.print = FALSE----
 catExp.res$predicted.outcome
 
-## ----catExp_binaryOutcome_glm.result, paged.print = FALSE---------------------
+## ----catExp_binaryOutcome_glm.result, paged.print = FALSE----
 
 summary(catExp.res$glm.result)
 
 
-## -----------------------------------------------------------------------------
+## ---------------------------------------------------------
 sessionInfo()
 

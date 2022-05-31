@@ -205,6 +205,11 @@ binary.res$n
 binary.res$contrast
 ```
 
+There is also a summary method for objects with class **gComp** that contains the formula, family and link function, contrast being made, parameter estimates with 95% CIs, and a summary of the underlying glm used for predictions.
+```{r}
+summary(binary.res)
+```
+
 To check to make sure the package is estimating effects as expected, we suggest comparing the riskCommunicator results to a normal logistic regression model (for example, with the glm function in R) using the same model structure. The odds ratio from riskCommunicator should be very similar to the odds ratio obtained from glm (note: minor differences may occur due to estimating marginal vs. covariate conditional effects). Because any errors that you receive while running a normal logistic regression model will also be an issue when using the riskCommunicator package, it may be helpful to optimize the logistic regression first.
 
 We can also do the same analysis within subgroups. Here we'll estimate effects stratified by sex, or within subgroups of men and women.
@@ -365,12 +370,11 @@ This analysis shows that individuals with diabetes at baseline have 0.05 (95% CI
 
 # Checking model fit
 
-To ensure that the parameter estimates from each bootstrap iteration are normally distributed, we can also look at the histogram and Q-Q plots of bootstrapped estimates by calling:
+The 95% CIs obtained from the riskCommunicator package represent population-standardized marginal effects obtained with g-computation. To ensure that the parameter estimates from each bootstrap iteration are normally distributed, we can also look at the histogram and Q-Q plots of bootstrapped estimates by calling:
 ```{r catExp_binaryOutcome_plot, fig.width = 12, fig.height = 10, out.width = "100%"}
 plot(catExp.res)
 ```
-
-We expect to see the histograms to look approximately normally distributed and the estimates to fall close to the dotted red line on the Q-Q plots.
+The histograms show the different effect estimates obtained by each bootstrap resampling of the data and should be normally distributed if the model is correctly specified.  Q-Q plots help to verify that the bootstrap values are normally distributed by comparing the actual distribution of bootstrap values against a theoretical normal distribution of values centered at mean = 0. If the estimates are normally distributed, the plotted estimates (black circles) should overlay the diagonal red dashed line.
 
 In order to facilitate plotting of the results, the `results.df` output contains a data.frame with all of the info needed to make your own results plot, as shown below:
 ```{r catExp_binaryOutcome_resultsPlot, fig.height = 3, fig.width = 5, out.width = "100%"}

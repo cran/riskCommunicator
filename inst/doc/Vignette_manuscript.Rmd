@@ -2,24 +2,25 @@
 title: "riskCommunicator Manuscript Vignette"
 author: "Jessica Grembi, Elizabeth Rogawski McQuade"
 date: "`r Sys.Date()`"
-output: 
-    pdf_document:
-      number_sections: no
-      toc: yes
-    rmarkdown::html_vignette:
+output:
+  rmarkdown::html_vignette:
       number_sections: no
       toc: yes
 vignette: >
   %\VignetteIndexEntry{Short Vignette: Included in Manuscript}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown} 
+  %\VignetteEncoding{UTF-8} 
   %\VignetteDepends{tidyverse}
 ---
 
-```{r, include = FALSE}
+```{r, echo = FALSE}
+options(width = 60)
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>"
+  # tidy.opts = list(width.cutoff = 60,
+  #                  args.newline = TRUE),
+  # tidy = T
 )
 ```
 
@@ -27,7 +28,7 @@ knitr::opts_chunk$set(
 
 The `riskCommunicator` package facilitates the estimation of common epidemiological effect measures that are relevant to public health, but that are often not trivial to obtain from common regression models, like logistic regression. In particular, `riskCommunicator` estimates risk and rate differences, in addition to risk and rate ratios. The package estimates these effects using g-computation with the appropriate parametric model depending on the outcome (logistic regression for binary outcomes, Poisson regression for rate or count outcomes, negative binomial regression for overdispersed rate or count outcomes, and linear regression for continuous outcomes). Therefore, the package can handle binary, rate, count, and continuous outcomes and allows for dichotomous, categorical (>2 categories), or continuous exposure variables. Additional features include estimation of effects stratified by subgroup and adjustment of standard errors for clustering. Confidence intervals are constructed by bootstrap at the individual or cluster level, as appropriate. 
 
-This package operationalizes g-computation, which has not been widely adopted due to computational complexity, in an easy-to-use implementation tool to increase the reporting of more interpretable epidemiological results. To make the package accessible to a broad range of health researchers, our goal was to design a function that was as straightforward as the standard logistic regression functions in R (e.g. glm) and that would require little to no expertise in causal inference methods or advanced coding.
+This package operationalizes g-computation, which has not been widely adopted due to computational complexity, in an easy-to-use implementation tool to increase the reporting of more interpretable epidemiological results. To make the package accessible to a broad range of health researchers, our goal was to design a function that was as straightforward as the standard logistic regression functions in R (e.g. `glm`) and that would require little to no expertise in causal inference methods or advanced coding.
 
 
 # Getting started
@@ -44,6 +45,10 @@ Load packages:
 library(riskCommunicator)
 library(tidyverse)
 library(printr)
+library(formatR)
+library(sandwich)
+library(stringr)
+library(ggpubr)
 ```
 
 ## Description of main package function
@@ -74,9 +79,9 @@ NOTE: This is a "teaching" dataset. Specific methods were employed to ensure an 
 
 Research question: what is the effect of having diabetes at the beginning of the study on the 24-year risk of cardiovascular disease or death due to any cause? 
 
-Here, we will estimate the risk difference, risk ratio, odds ratio, and number needed to treat, adjusting for patient's age, sex, body mass index (BMI), smoking status (current smoker or not), and prevalence of hypertension (if they are hypertensive or not at baseline). Logistic regression is used as the underlying parametric model for g-computation.
+Here, we will estimate the risk difference, risk ratio, odds ratio, and number needed to treat, adjusting for patient's age, sex, body mass index (BMI), smoking status (current smoker or not), and prevalence of hypertension (if they are hypertensive or not at baseline). Logistic regression is used as the underlying parametric model for g-computation. <span style="color: red;">[NOTE: The CRAN version of this vignette has reduced the number of bootstraps from 1000 to 200 to comply with CRAN compile times.  If you wish to perfectly recreate results from the manuscript, change all of the instances of `R = 200` to `R = 1000`]</span>
 
-```{r binary_outcome, paged.print = FALSE}
+```{r binary_outcome, paged.print = FALSE, cache=T}
 ## Specify the regression formula
 cvdd.formula <- cvd_dth ~ DIABETES + AGE + SEX + BMI + CURSMOKE + PREVHYP
 
@@ -89,7 +94,7 @@ set.seed(1298)
 binary.res <- gComp(data = cvdd, 
                     formula = cvdd.formula, 
                     outcome.type = "binary", 
-                    R = 1000)
+                    R = 200)
 
 binary.res
 ```
@@ -110,6 +115,109 @@ binary.res$contrast
 ```
 
 
+There is also a summary method for objects with class **gComp** that contains the formula, family and link function, contrast being made, parameter estimates with 95% CIs, and a summary of the underlying glm used for predictions.
+```{r}
+summary(binary.res)
+```
+
+
+### Checking model fit
+
+The 95% CIs obtained from the riskCommunicator package represent population-standardized marginal effects obtained with g-computation. To ensure that the parameter estimates from each bootstrap iteration are normally distributed, we can also look at the histogram and Q-Q plots of bootstrapped estimates by calling:
+```{r binary_outcome_plot, fig.width = 12, fig.height = 9, out.width = "100%"}
+plot(binary.res)
+```
+The histograms show the different effect estimates obtained by each bootstrap resampling of the data and should be normally distributed if the model is correctly specified.  Q-Q plots help to verify that the bootstrap values are normally distributed by comparing the actual distribution of bootstrap values against a theoretical normal distribution of values centered at mean = 0. If the estimates are normally distributed, the plotted estimates (black circles) should overlay the diagonal red dashed line.
+
+### In the manuscript, we compare the results of gComp to standard regression models. Here, we show how to do that so we can re-create Table 2.
+
+First we obtain the odds ratio using logistic regression.
+```{r std-regression-odds-ratio, echo = F}
+std.reg.or = glm(formula = cvd_dth ~ DIABETES + AGE + SEX + BMI + CURSMOKE + PREVHYP, 
+                 data = cvdd, 
+                 family=binomial(link='logit'))
+
+std.reg.or
+
+df.std.reg.or = data.frame(exp(cbind(OR = coef(std.reg.or), confint.default(std.reg.or, level = 0.95)))) %>%
+  # and we pull out only the estimate we are concerned with for the predictor DIABETES
+  filter(rownames(.) == "DIABETES1") %>%
+  rename(LL = `X2.5..`, UL = `X97.5..`)
+
+```
+Note the use of `confint.default` in the above call.  The typical call `confint` does not return Wald-based CIs, so we've forced it with `confint.default.` You can read more about that here: https://stats.stackexchange.com/questions/5304/why-is-there-a-difference-between-manually-calculating-a-logistic-regression-95  
+
+
+Next, we calculate the risk ratio using a Poisson approximation of log-binomial regression with robust variance (sandwich standard errors).
+```{r std-regression-risk-ratio, echo = F}
+std.reg.rr = glm(formula = cvd_dth ~ DIABETES + AGE + SEX + BMI + CURSMOKE + PREVHYP, 
+                 ## to use Poisson regression, we need to change DIABETES from a factor to a numeric (0,1) variable
+                 data = cvdd %>%
+                   mutate(cvd_dth = ifelse(cvd_dth == "0", 0, ifelse(cvd_dth == "1", 1, NA))), 
+                 family="poisson")
+std.reg.rr
+
+## calculate robust Standard errors
+cov.std.reg.rr = sandwich::vcovHC(std.reg.rr)
+std.err <- sqrt(diag(cov.std.reg.rr))
+
+df.std.reg.rr = data.frame(Estimate = exp(coef(std.reg.rr)[2]), 
+                      Robust_SE = exp(std.err[2]),
+                      LL = exp(coef(std.reg.rr)[2] - 1.96 * std.err[2]), 
+                      UL = exp(coef(std.reg.rr)[2] + 1.96 * std.err[2]))
+
+```
+
+
+We can try to calculate the risk difference using a log-linear regression, but the model won't converge.
+```{r std-regression-risk-difference, eval = F}
+std.reg.rd = glm(formula = cvd_dth ~ DIABETES + AGE + SEX + BMI + CURSMOKE + PREVHYP, 
+                 data = cvdd %>%
+                   ## To use linear regression, we need to change DIABETES from a 
+                   ##   factor to a numeric (0,1) variable
+                   mutate(cvd_dth = ifelse(cvd_dth == "0", 0, 
+                                           ifelse(cvd_dth == "1", 1, NA))), 
+                 family=gaussian(link = 'log'))
+```
+
+We can re-create Table 2 from the manuscript now!
+```{r table 2}
+# combine standard regression results
+std.regression.res = df.std.reg.or %>%
+  mutate(Parameter = "Odds Ratio",
+         Std_regression = paste0(round(OR, 2), 
+                                 " (", 
+                                 round(LL, 2), 
+                                 ", ", 
+                                 round(UL, 2), 
+                                 ")")) %>%
+  bind_rows(df.std.reg.rr %>%
+              mutate(Parameter = "Risk Ratio",
+                     Std_regression = paste0(round(Estimate, 2), 
+                                             " (", 
+                                             round(LL, 2), 
+                                             ", ", 
+                                             round(UL, 2), 
+                                             ")"))) %>%
+  select(Parameter, Std_regression) %>%
+  rename(`Standard regression` = Std_regression)
+rownames(std.regression.res) = NULL
+
+
+(table2 = binary.res$results.df %>%
+  mutate(riskCommunicator = paste0(format(round(Estimate, 2), 2), 
+                                   " (", 
+                                   format(round(`2.5% CL`, 2), 2), 
+                                   ", ", 
+                                   format(round(`97.5% CL`, 2), 2), 
+                                   ")"),
+         riskCommunicator = ifelse(Parameter == "Number needed to treat/harm", 
+                                   round(Estimate, 2), riskCommunicator)) %>%
+  select(Parameter, riskCommunicator) %>%
+  left_join(std.regression.res, by = "Parameter"))
+```
+
+
 ## Rate outcome example
 
 Research question: what is the effect of having diabetes at the beginning of the study on the rate of cardiovascular disease or death due to any cause? 
@@ -117,9 +225,10 @@ Research question: what is the effect of having diabetes at the beginning of the
 Here, we will estimate the rate difference and rate ratio, adjusting for patient's age, sex, body mass index (BMI), smoking status (current smoker or not), and prevalence of hypertension (if they are hypertensive or not at baseline). We have included **timeout** as the `offset` and a `rate.multiplier` of `365.25*100` so that the estimates are returned with units of 100 person-years. Poisson regression is used as the underlying parametric model for g-computation. (Note: for overdispersed count/rate outcomes, the negative binomial distribution can be specified by setting `outcome.type` to **"count_nb"** or **"rate_nb"**.)
 
 
-```{r rate_outcome, paged.print = FALSE}
-## Modify the dataset to change the variable cvd_dth from a factor to a numeric variable  
-## since the outcome for Poisson regression must be numeric.
+```{r rate_outcome, cache = T}
+## Modify the dataset to change the variable cvd_dth from a factor 
+##  to a numeric variable since the outcome for Poisson
+##  regression must be numeric.
 cvdd.t <- cvdd %>%
   dplyr::mutate(cvd_dth = as.numeric(as.character(cvd_dth)),
                 timeout = as.numeric(timeout))
@@ -133,7 +242,7 @@ rate.res <- gComp(data = cvdd.t,
                   outcome.type = "rate", 
                   rate.multiplier = 365.25*100, 
                   offset = "timeout", 
-                  R = 1000)
+                  R = 200)
 
 rate.res
 ```
@@ -146,11 +255,7 @@ Research question: what is the effect of having diabetes at the beginning of the
 Here, we will estimate the same effects above, but in subgroups defined by sex.
 
 
-```{r rate_outcome_subgroup, paged.print = FALSE}
-## Modify the dataset to change the variable cvd_dth from a factor to a numeric variable  
-## since the outcome for Poisson regression must be numeric.
-
-set.seed(6534)
+```{r rate_outcome_subgroup, cache = T}
 
 rate.res.subgroup <- gComp(data = cvdd.t, 
                            Y = "cvd_dth", 
@@ -160,19 +265,148 @@ rate.res.subgroup <- gComp(data = cvdd.t,
                            outcome.type = "rate", 
                            rate.multiplier = 365.25*100, 
                            offset = "timeout", 
-                           R = 1000)
+                           R = 200)
 
 rate.res.subgroup
+
 ```
   
+### The `results.df` component of the `gComp` function output is formatted as a data.frame.  This makes it very easy to immediately plot the results using **ggplot2** or your favorite R plotting functionality.  Here's an example for plotting the results of the different subgroups (sexes) for the rate example above.
 
-# Checking model fit
+```{r plot-rate-outcome-results, warning = F}
+# Saving the output and modifying the labels of the SEX variable to specify 
+#   male/female instead of 0/1
+# Also adding a new variable to show the line indicating no difference found 
+#   (0 for rate difference, 1 for rate ratio)
 
-To ensure that the parameter estimates from each bootstrap iteration are normally distributed, we can also look at the histogram and Q-Q plots of bootstrapped estimates by calling:
-```{r binary_outcome_plot, fig.width = 12, fig.height = 9, out.width = "100%"}
-plot(binary.res)
+df = rate.res.subgroup$results.df %>%
+  mutate(Subgroup = ifelse(Subgroup == "SEX0", "Male", "Female"),
+         hline = ifelse(Parameter == "Incidence Rate Ratio", 1, 0)) 
+
+ggplot(df, aes(x = Subgroup, y = Estimate)) + 
+  geom_point(size = 2) + 
+  geom_errorbar(aes(ymin = `2.5% CL`, ymax = `97.5% CL`), 
+                width = 0.2) + 
+  facet_wrap(~Parameter) +
+  theme_bw() + 
+  labs(x = "", color = "") + 
+  geom_hline(aes(yintercept = hline), 
+             color = "red", 
+             linetype = "dashed", 
+             alpha = 0.3) 
 ```
 
+### Let's make a figure comparing the results we got above using riskCommunicator with those we get using standard regression models for this rate example.
+
+First, we need to get the covariate-conditional estimates using standard Poisson regression.
+```{r std-regression-models-rate}
+# Standard Poisson regression (spr) for the rate question, across both sexes
+spr.rate = glm(
+  formula = cvd_dth ~ DIABETES + AGE + SEX + BMI + CURSMOKE + PREVHYP + 
+    offset(log(timeout+0.001)),
+  data = cvdd.t, 
+  family = "poisson"
+  )
+
+# get the parameter estimate and CI from the model object
+df.spr.rate = as.data.frame(
+  exp(cbind(Estimate = coef(spr.rate), confint.default(spr.rate, level = 0.95)))
+  ) %>%
+  rename(`2.5% CL` = `2.5 %`, `97.5% CL` = `97.5 %`) %>%
+  filter(rownames(.) == "DIABETES1") %>%
+  mutate(Subgroup = "All")
+
+
+# Standard Poisson regression (spr) for the rate question, by subgroup (SEX)
+spr.rate.subgroup = glm(
+  formula = cvd_dth ~ DIABETES + AGE + SEX + BMI + CURSMOKE + PREVHYP + 
+    DIABETES*SEX + offset(log(timeout+0.001)), 
+  data = cvdd.t, 
+  family = "poisson"
+  )
+
+# Get the variance-covariance matrix so we can calculate standard errors
+se.subgroup = vcov(spr.rate.subgroup)
+
+# Get estimates and CIs
+df.spr.rate.subgroup = data.frame(
+  Subgroup = c("Male", "Female"),
+  raw.est = c(coef(spr.rate.subgroup)[2], 
+              coef(spr.rate.subgroup)[2] + coef(spr.rate.subgroup)[8]),
+  SE = c(sqrt(se.subgroup[2,2]), 
+         sqrt(se.subgroup[2,2] + se.subgroup[8,8] + 2*se.subgroup[2,8]))) %>%
+  mutate(Estimate = exp(raw.est), 
+         `2.5% CL` = exp(raw.est - 1.96 * SE),
+         `97.5% CL` = exp(raw.est + 1.96 * SE))
+
+# Combine the results from the subgroup and full model into a single data.frame
+combined.std.reg = df.spr.rate %>%
+  bind_rows(df.spr.rate.subgroup %>%
+            select(Subgroup, Estimate:`97.5% CL`)) %>%
+  mutate(Parameter = "Incidence Rate Ratio",
+         model = "Standard Poisson Regression")
+```
+
+Now, we can plot the same figure shown in the manuscript.
+```{r plot-rate-outcome-results-v-std-regression, warning = F, fig.width = 8, fig.height = 4}
+# Combine the riskCommunicator results with the standard Poisson regression results
+df.combined = rate.res$results.df %>%
+  mutate(Subgroup = "All") %>%
+  bind_rows(df) %>%
+  mutate(model = "riskCommunicator") %>%
+  select(-Outcome, -Comparison) %>%
+  bind_rows(combined.std.reg) %>%
+  mutate(hline = ifelse(Parameter == "Incidence Rate Ratio", 1, 0))
+
+
+rate.diff = ggplot(df.combined %>% 
+                      filter(Parameter == "Incidence Rate Difference"), 
+                   aes(x = Subgroup, y = Estimate, color = model)) + 
+  geom_point(size = 2, position = position_dodge(width = .5)) + 
+  geom_errorbar(aes(ymin = `2.5% CL`, ymax = `97.5% CL`), 
+                width = 0.2, 
+                position = position_dodge(width = .5)) + 
+  scale_color_manual(values = c("#481567FF", "#3CBB75FF")) + 
+  theme_bw() + 
+  labs(x = "",  
+       y = str_wrap('Incidence rate difference of 
+                    cardiovascular disease or death 
+                    (cases/100 person-years)', width = 32),
+       color = "") + 
+  geom_hline(aes(yintercept = hline), 
+             color = "red", 
+             linetype = "dashed", 
+             alpha = 0.3) + 
+  theme(legend.position = "none") 
+
+rate.ratio = ggplot(df.combined %>% 
+                       filter(Parameter == "Incidence Rate Ratio"), 
+                   aes(x = Subgroup, y = Estimate, color = model)) + 
+  geom_point(size = 2, position = position_dodge(width = .5)) + 
+  geom_errorbar(aes(ymin = `2.5% CL`, ymax = `97.5% CL`), 
+                width = 0.2, 
+                position = position_dodge(width = .5)) + 
+  scale_y_continuous(trans = "log2") +
+  scale_color_manual(values = c("#481567FF", "#3CBB75FF")) + 
+  theme_bw() + 
+  labs(x = "",  
+       y = str_wrap('Incidence rate ratio of 
+                    cardiovascular disease or death 
+                    (shown on natural log scale)', width = 32),
+       color = "") + 
+  geom_hline(aes(yintercept = hline), 
+             color = "red", 
+             linetype = "dashed", 
+             alpha = 0.3) + 
+  theme(legend.position = "bottom") 
+
+ggarrange(rate.ratio, rate.diff, ncol = 2, common.legend = T, legend = "bottom",
+          labels = c("A", "B"), widths = c(1, 1))
+```
+
+```{r save-Fig1, include = F, eval = F}
+ggsave(filename = "~/Dropbox/Framingham teaching data set/Manuscript drafts/Fig1.tiff", device = "tiff", width = 10, height = 6)
+```
 
 
 ```{r}

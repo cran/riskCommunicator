@@ -80,7 +80,7 @@ Poisson regression model. Numeric variable should be on the linear scale;
 function will take natural log before including in the model.}
 
 \item{rate.multiplier}{(Optional, only applicable for rate/count outcomes). 
-Default 1 Numeric variable signifying the person-time value to use in 
+Default 1. Numeric variable signifying the person-time value to use in 
 predictions; the offset variable will be set to this when predicting under 
 the counterfactual conditions. This value should be set to the person-time 
 denominator desired for the rate difference measure and must be inputted in 
@@ -106,7 +106,7 @@ confidence intervals. The \code{clusterID} will be used as the level for
 resampling in the bootstrap procedure.}
 
 \item{parallel}{(Optional) Default "no." The type of parallel operation to be used. Available 
-options (besides the default of no parallel processing) include multicore" (not available 
+options (besides the default of no parallel processing) include "multicore" (not available 
 for Windows) or "snow." This argument is passed directly to \code{\link[boot]{boot}}.
 See note below about setting seeds and parallel computing.}
 
@@ -202,8 +202,17 @@ For continuous exposure variables, the default effects are provided
   the variable. However, variations in the effect are likely small, 
   especially near the mean.
 
+Interaction terms are not allowed in the model formula. The \code{subgroup} 
+  argument affords interaction between the exposure variable and a single 
+  covariate (that is forced to categorical if supplied as numeric) to 
+  estimate effects of the exposure within subgroups defined by the 
+  interacting covariate. To include additional interaction terms with 
+  variables other than the exposure, we recommend that users create the 
+  interaction term as a cross-product of the two interaction variables in  
+  a data cleaning step prior to running the model.
+
 The documentation for \code{\link[boot]{boot}} includes details about 
- reproducible seeds when using parallel computing.
+  reproducible seeds when using parallel computing.
 }
 \examples{
 ## Obtain the risk difference and risk ratio for cardiovascular disease or death between

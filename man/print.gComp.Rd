@@ -8,13 +8,13 @@ computations of the g-computation}
 \method{print}{gComp}(x, ...)
 }
 \arguments{
-\item{x}{(Required) An object of class \code{gComp}.}
+\item{x}{(Required) An object of class \code{gComp} as produced by \code{gComp()}.}
 
 \item{...}{(Optional) Further arguments passed to or from other methods.}
 }
 \value{
-The resulting point estimate and 95% confidence intervals of the
-  difference and ratio.
+Returns the formula and resulting point estimate and 95\% 
+confidence intervals of the difference and ratio.
 }
 \description{
 Print results from bootstrap computations of the g-computation
@@ -26,8 +26,9 @@ Print results from bootstrap computations of the g-computation
 ## if they have a history of hypertension.
 data(cvdd)
 set.seed(4832)
-diabetes.result <- gComp(data = cvdd, Y = "cvd_dth", X = "bmicat",
-Z = c("AGE", "SEX", "DIABETES", "CURSMOKE", "PREVHYP"), outcome.type = "binary", R = 20)
+diabetes.result <- gComp(cvdd, 
+   formula = "cvd_dth ~ DIABETES + AGE + SEX + BMI + CURSMOKE + PREVHYP",
+   outcome.type = "binary", R = 20)
 print(diabetes.result)
 
 
